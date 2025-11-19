@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { documentsApi } from '../api/documents';
 import { ragApi } from '../api/rag';
 import { Document, ChatMessage, DocumentChunk } from '../types';
+import { formatApiError } from '../utils/errorHandler';
 
 const Chat: React.FC = () => {
   const navigate = useNavigate();
@@ -85,7 +86,7 @@ const Chat: React.FC = () => {
       console.error('Failed to get answer:', err);
       const errorMessage: ChatMessage = {
         role: 'assistant',
-        content: `Error: ${err.response?.data?.detail || 'Failed to get answer. Please try again.'}`,
+        content: `Error: ${formatApiError(err, 'Failed to get answer. Please try again.')}`,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMessage]);

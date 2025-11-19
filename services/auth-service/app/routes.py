@@ -1,19 +1,21 @@
 # FILE: services/auth-service/app/routes.py
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Optional
 from app.database import get_db
 from app.models import User, RefreshToken
 from app.schemas import (
     GoogleAuthRequest,
+    GoogleTokenRequest,
     TokenResponse,
     TokenRefreshRequest,
     UserResponse,
     ErrorResponse
 )
-from app.oauth import exchange_code_for_token, get_google_user_info
+from app.oauth import exchange_code_for_token, get_google_user_info, verify_google_token
 from app.auth_utils import create_access_token, create_refresh_token, verify_token, get_token_expiration
 from app.config import settings
 
@@ -59,12 +61,77 @@ async def google_callback(
             picture=user_info.get('picture'),
             oauth_provider='google',
             oauth_provider_id=user_info['id'],
-            last_login=datetime.utcnow()
+            last_login=datetime.now(timezone.utc)
         )
         db.add(user)
     else:
         # Update last login
-        user.last_login = datetime.utcnow()
+        user.last_login = datetime.now(timezone.utc)
+
+    await db.commit()
+    await db.refresh(user)
+
+    # Create JWT tokens
+    token_payload = {"sub": user.id, "email": user.email}
+    access_token = create_access_token(token_payload)
+    refresh_token = create_refresh_token(token_payload)
+
+    # Store refresh token in database
+    refresh_token_payload = verify_token(refresh_token, token_type="refresh")
+    if refresh_token_payload:
+        db_refresh_token = RefreshToken(
+            user_id=user.id,
+            token=refresh_token,
+            expires_at=get_token_expiration(refresh_token)
+        )
+        db.add(db_refresh_token)
+        await db.commit()
+
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    )
+
+
+@router.post("/google/token", response_model=TokenResponse)
+async def google_token_auth(
+    request: GoogleTokenRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Handle Google JWT token authentication (from @react-oauth/google).
+    Verify the JWT token and create/update user.
+    """
+    # Verify Google JWT token
+    user_info = await verify_google_token(request.token)
+    if not user_info:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid Google token"
+        )
+
+    # Check if user exists
+    result = await db.execute(
+        select(User).where(User.oauth_provider_id == user_info['id'])
+    )
+    user = result.scalar_one_or_none()
+
+    if not user:
+        # Create new user
+        user = User(
+            email=user_info['email'],
+            full_name=user_info.get('name'),
+            picture=user_info.get('picture'),
+            oauth_provider='google',
+            oauth_provider_id=user_info['id'],
+            last_login=datetime.now(timezone.utc)
+        )
+        db.add(user)
+    else:
+        # Update last login
+        user.last_login = datetime.now(timezone.utc)
 
     await db.commit()
     await db.refresh(user)
@@ -123,7 +190,7 @@ async def refresh_token(
         )
 
     # Check if token is expired
-    if db_token.expires_at < datetime.utcnow():
+    if db_token.expires_at < datetime.now(timezone.utc):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token expired"
@@ -171,10 +238,25 @@ async def refresh_token(
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user(
-    token: str,
+    authorization: Optional[str] = Header(None),
     db: AsyncSession = Depends(get_db)
 ):
     """Get current user information from access token."""
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header missing"
+        )
+
+    # Extract token from "Bearer <token>"
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authorization header format"
+        )
+
+    token = parts[1]
     payload = verify_token(token, token_type="access")
     if not payload:
         raise HTTPException(

@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { documentsApi } from '../../api/documents';
+import { formatApiError } from '../../utils/errorHandler';
 
 interface DocumentUploadProps {
   onSuccess: () => void;
@@ -18,8 +19,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({ onSuccess, onCancel }) 
   const allowedExtensions = ['pdf', 'txt', 'doc', 'docx', 'md'];
   const maxFileSize = 10 * 1024 * 1024; // 10MB
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const validateAndSetFile = (file: File | null) => {
     if (!file) return;
 
     // Validate file extension
@@ -39,15 +39,15 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({ onSuccess, onCancel }) 
     setError('');
   };
 
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    validateAndSetFile(file || null);
+  };
+
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
-    if (file) {
-      const fakeEvent = {
-        target: { files: [file] },
-      } as React.ChangeEvent<HTMLInputElement>;
-      handleFileSelect(fakeEvent);
-    }
+    validateAndSetFile(file);
   };
 
   const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
@@ -69,7 +69,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({ onSuccess, onCancel }) 
       onSuccess();
     } catch (err: any) {
       console.error('Upload failed:', err);
-      setError(err.response?.data?.detail || 'Upload failed. Please try again.');
+      setError(formatApiError(err, 'Upload failed. Please try again.'));
     } finally {
       setIsUploading(false);
       setUploadProgress(0);

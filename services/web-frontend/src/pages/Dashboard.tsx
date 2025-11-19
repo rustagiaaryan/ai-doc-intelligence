@@ -7,6 +7,7 @@ import { documentsApi } from '../api/documents';
 import { Document } from '../types';
 import DocumentUpload from '../components/Documents/DocumentUpload';
 import DocumentList from '../components/Documents/DocumentList';
+import { formatApiError } from '../utils/errorHandler';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -65,7 +66,7 @@ const Dashboard: React.FC = () => {
       loadDocuments();
     } catch (err: any) {
       console.error('Failed to process document:', err);
-      alert(err.response?.data?.detail || 'Failed to process document.');
+      alert(formatApiError(err, 'Failed to process document.'));
     }
   };
 

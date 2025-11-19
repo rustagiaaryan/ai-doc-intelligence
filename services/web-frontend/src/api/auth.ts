@@ -5,7 +5,7 @@ import { User, AuthTokens } from '../types';
 
 export const authApi = {
   async login(googleToken: string): Promise<AuthTokens> {
-    return apiClient.post<AuthTokens>('/api/auth/google/callback', {
+    return apiClient.post<AuthTokens>('/api/auth/google/token', {
       token: googleToken,
     });
   },

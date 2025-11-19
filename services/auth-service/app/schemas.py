@@ -49,6 +49,11 @@ class GoogleAuthRequest(BaseModel):
     redirect_uri: str
 
 
+class GoogleTokenRequest(BaseModel):
+    """Schema for Google JWT token authentication."""
+    token: str
+
+
 class GoogleUserInfo(BaseModel):
     """Schema for Google user information."""
     id: str

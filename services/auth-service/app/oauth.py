@@ -4,6 +4,8 @@ from authlib.integrations.starlette_client import OAuth
 from app.config import settings
 import httpx
 from typing import Optional, Dict, Any
+from google.oauth2 import id_token
+from google.auth.transport import requests
 
 
 # Initialize OAuth
@@ -69,3 +71,36 @@ async def exchange_code_for_token(code: str, redirect_uri: str) -> Optional[Dict
             return response.json()
         except httpx.HTTPError:
             return None
+
+
+async def verify_google_token(token: str) -> Optional[Dict[str, Any]]:
+    """
+    Verify Google JWT token (ID token from @react-oauth/google).
+
+    Args:
+        token: Google JWT token (credential)
+
+    Returns:
+        Decoded token payload or None if verification fails
+    """
+    try:
+        # Verify the token
+        idinfo = id_token.verify_oauth2_token(
+            token,
+            requests.Request(),
+            settings.GOOGLE_CLIENT_ID
+        )
+
+        # Token is valid, return the decoded information
+        return {
+            'id': idinfo['sub'],
+            'email': idinfo['email'],
+            'verified_email': idinfo.get('email_verified', False),
+            'name': idinfo.get('name'),
+            'given_name': idinfo.get('given_name'),
+            'family_name': idinfo.get('family_name'),
+            'picture': idinfo.get('picture')
+        }
+    except Exception as e:
+        print(f"Token verification failed: {e}")
+        return None

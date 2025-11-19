@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
+import { formatApiError } from '../utils/errorHandler';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -25,7 +26,7 @@ const Login: React.FC = () => {
       navigate('/dashboard');
     } catch (err: any) {
       console.error('Login error:', err);
-      setError(err.response?.data?.detail || 'Login failed. Please try again.');
+      setError(formatApiError(err, 'Login failed. Please try again.'));
     } finally {
       setIsLoading(false);
     }
