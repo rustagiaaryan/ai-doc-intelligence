@@ -43,7 +43,7 @@ async def proxy_request(
         body = await request.body()
 
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
             # Make request to target service
             response = await client.request(
                 method=request.method,
@@ -53,11 +53,16 @@ async def proxy_request(
                 content=body,
             )
 
-            # Return response
+            # Return response (exclude hop-by-hop headers)
+            response_headers = dict(response.headers)
+            # Remove hop-by-hop headers that shouldn't be proxied
+            for header in ["connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers", "transfer-encoding", "upgrade"]:
+                response_headers.pop(header, None)
+
             return Response(
                 content=response.content,
                 status_code=response.status_code,
-                headers=dict(response.headers),
+                headers=response_headers,
                 media_type=response.headers.get("content-type")
             )
 
