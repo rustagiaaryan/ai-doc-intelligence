@@ -19,6 +19,6 @@ class DocumentChunk(Base):
     chunk_size = Column(Integer, nullable=False)
     embedding = Column(Vector(1536), nullable=True)
     page_number = Column(Integer, nullable=True)
-    metadata = Column(Text, nullable=True)
+    chunk_metadata = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

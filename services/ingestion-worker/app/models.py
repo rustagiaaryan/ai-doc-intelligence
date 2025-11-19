@@ -26,7 +26,7 @@ class DocumentChunk(Base):
 
     # Metadata
     page_number = Column(Integer, nullable=True)
-    metadata = Column(Text, nullable=True)  # JSON string
+    chunk_metadata = Column(Text, nullable=True)  # JSON string
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
