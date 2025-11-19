@@ -74,7 +74,7 @@ async def process_document(
             await db.execute(
                 text("""
                     UPDATE documents
-                    SET status = 'processed',
+                    SET status = 'completed',
                         processed_at = NOW()
                     WHERE id = :doc_id
                 """),

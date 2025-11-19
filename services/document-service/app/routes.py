@@ -18,6 +18,7 @@ from app.s3_client import s3_client
 from app.config import settings
 import uuid
 import os
+import httpx
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
@@ -255,3 +256,74 @@ async def get_download_url(
         )
 
     return PresignedUrlResponse(url=url, expires_in=3600)
+
+
+@router.post("/{document_id}/process")
+async def trigger_document_processing(
+    document_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Trigger processing of a document by sending it to the ingestion worker."""
+
+    # Get document
+    result = await db.execute(
+        select(Document).where(
+            Document.id == document_id,
+            Document.user_id == current_user['id']
+        )
+    )
+    document = result.scalar_one_or_none()
+
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+
+    # Check if document is in uploaded status
+    if document.status not in ['uploaded', 'failed']:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Document cannot be processed in '{document.status}' status"
+        )
+
+    # Update status to processing
+    document.status = 'processing'
+    await db.commit()
+
+    # Send to ingestion worker
+    try:
+        # Get ingestion worker URL from environment
+        ingestion_url = os.getenv('INGESTION_WORKER_URL', 'http://localhost:8003')
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(
+                f"{ingestion_url}/process/document",
+                json={
+                    "document_id": document.id,
+                    "user_id": document.user_id,
+                    "s3_key": document.s3_key,
+                    "file_extension": document.file_extension
+                }
+            )
+            response.raise_for_status()
+            result_data = response.json()
+
+        return {
+            "message": "Document processing started",
+            "document_id": document.id,
+            "status": "processing",
+            **result_data
+        }
+
+    except httpx.HTTPError as e:
+        # Revert status if request failed
+        document.status = 'failed'
+        document.processing_error = f"Failed to send to ingestion worker: {str(e)}"
+        await db.commit()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start processing: {str(e)}"
+        )

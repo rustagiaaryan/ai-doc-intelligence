@@ -25,10 +25,9 @@ export const documentsApi = {
     return apiClient.get<{ download_url: string }>(`/api/documents/${documentId}/download`);
   },
 
-  async processDocument(documentId: string): Promise<{ message: string; chunks_created: number }> {
-    return apiClient.post<{ message: string; chunks_created: number }>(
-      '/api/process/document',
-      { document_id: documentId }
+  async processDocument(documentId: string): Promise<{ message: string; status: string }> {
+    return apiClient.post<{ message: string; status: string }>(
+      `/api/documents/${documentId}/process`
     );
   },
 };
