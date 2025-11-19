@@ -9,7 +9,8 @@ export const documentsApi = {
   },
 
   async listDocuments(): Promise<Document[]> {
-    return apiClient.get<Document[]>('/api/documents/');
+    const response = await apiClient.get<{ documents: Document[]; total: number; page: number; page_size: number }>('/api/documents/');
+    return response.documents;
   },
 
   async getDocument(documentId: string): Promise<Document> {
