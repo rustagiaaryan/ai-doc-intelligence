@@ -7,7 +7,7 @@ import httpx
 from app.config import settings
 from typing import Optional
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 async def verify_token_with_auth_service(token: str) -> Optional[dict]:
@@ -27,15 +27,19 @@ async def verify_token_with_auth_service(token: str) -> Optional[dict]:
                 headers={"Authorization": f"Bearer {token}"},
                 timeout=5.0
             )
+            print(f"Auth service response: {response.status_code}")
+            if response.status_code != 200:
+                print(f"Auth service error: {response.text}")
             if response.status_code == 200:
                 return response.json()
             return None
-    except Exception:
+    except Exception as e:
+        print(f"Auth service exception: {e}")
         return None
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
 ) -> dict:
     """
     FastAPI dependency to get current authenticated user.
@@ -49,6 +53,13 @@ async def get_current_user(
     Raises:
         HTTPException: If token is invalid or user not found
     """
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header missing",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     token = credentials.credentials
 
     # Verify token with auth service
