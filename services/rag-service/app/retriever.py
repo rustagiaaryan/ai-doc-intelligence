@@ -64,12 +64,15 @@ class VectorRetriever:
         top_k = top_k or settings.TOP_K_RESULTS
 
         # Build query with pgvector cosine similarity
-        # Pass the embedding as a list - asyncpg will handle the conversion
+        # Convert embedding to string format that pgvector expects: "[0.1,0.2,...]"
+        # Note: Use Python's str() on the list which creates proper format
+        embedding_str = str(query_embedding)
+
         if document_ids:
             doc_filter = "AND document_id = ANY(:doc_ids)"
             params = {
                 "user_id": user_id,
-                "embedding": query_embedding,  # Pass as list
+                "embedding": embedding_str,
                 "top_k": top_k,
                 "threshold": settings.SIMILARITY_THRESHOLD,
                 "doc_ids": document_ids
@@ -78,7 +81,7 @@ class VectorRetriever:
             doc_filter = ""
             params = {
                 "user_id": user_id,
-                "embedding": query_embedding,  # Pass as list
+                "embedding": embedding_str,
                 "top_k": top_k,
                 "threshold": settings.SIMILARITY_THRESHOLD
             }
