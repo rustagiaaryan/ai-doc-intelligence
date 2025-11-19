@@ -23,7 +23,7 @@ async def verify_token_with_auth_service(token: str) -> Optional[dict]:
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 f"{settings.AUTH_SERVICE_URL}/auth/me",
-                params={"token": token},
+                headers={"Authorization": f"Bearer {token}"},
                 timeout=5.0
             )
             if response.status_code == 200:

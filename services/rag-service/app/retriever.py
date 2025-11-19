@@ -64,13 +64,12 @@ class VectorRetriever:
         top_k = top_k or settings.TOP_K_RESULTS
 
         # Build query with pgvector cosine similarity
-        embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
-
+        # Pass the embedding as a list - asyncpg will handle the conversion
         if document_ids:
             doc_filter = "AND document_id = ANY(:doc_ids)"
             params = {
                 "user_id": user_id,
-                "embedding": embedding_str,
+                "embedding": query_embedding,  # Pass as list
                 "top_k": top_k,
                 "threshold": settings.SIMILARITY_THRESHOLD,
                 "doc_ids": document_ids
@@ -79,7 +78,7 @@ class VectorRetriever:
             doc_filter = ""
             params = {
                 "user_id": user_id,
-                "embedding": embedding_str,
+                "embedding": query_embedding,  # Pass as list
                 "top_k": top_k,
                 "threshold": settings.SIMILARITY_THRESHOLD
             }
@@ -90,21 +89,26 @@ class VectorRetriever:
                 document_id,
                 chunk_text,
                 chunk_index,
-                1 - (embedding <=> :embedding::vector) AS similarity
+                1 - (embedding <=> CAST(:embedding AS vector)) AS similarity
             FROM document_chunks
             WHERE user_id = :user_id
             {doc_filter}
             AND embedding IS NOT NULL
-            ORDER BY embedding <=> :embedding::vector
+            ORDER BY embedding <=> CAST(:embedding AS vector)
             LIMIT :top_k
         """)
+
+        logger.info(f"Executing vector search query with params: user_id={user_id}, top_k={top_k}, threshold={settings.SIMILARITY_THRESHOLD}, doc_ids={document_ids}")
 
         result = await db.execute(query, params)
         rows = result.fetchall()
 
+        logger.info(f"Vector search returned {len(rows)} rows")
+
         chunks = []
         for row in rows:
             similarity = float(row[4])
+            logger.info(f"Chunk {row[0][:8]}... similarity: {similarity} (threshold: {settings.SIMILARITY_THRESHOLD})")
             if similarity >= settings.SIMILARITY_THRESHOLD:
                 chunks.append({
                     "chunk_id": row[0],
@@ -114,6 +118,7 @@ class VectorRetriever:
                     "similarity_score": similarity
                 })
 
+        logger.info(f"Returning {len(chunks)} chunks after threshold filtering")
         return chunks
 
 
