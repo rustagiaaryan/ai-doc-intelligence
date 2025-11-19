@@ -17,13 +17,19 @@ export interface Document {
   id: string;
   user_id: string;
   filename: string;
+  original_filename: string;
+  file_extension: string;
   file_size: number;
-  content_type: string;
+  mime_type: string | null;
   s3_key: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  uploaded_at: string;
+  s3_bucket: string;
+  status: 'uploaded' | 'processing' | 'completed' | 'failed';
+  processing_error: string | null;
+  title: string | null;
+  description: string | null;
+  created_at: string;
+  updated_at: string | null;
   processed_at: string | null;
-  metadata: Record<string, any>;
 }
 
 export interface DocumentChunk {

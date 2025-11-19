@@ -28,7 +28,7 @@ const DocumentList: React.FC<DocumentListProps> = ({ documents, onDelete, onProc
 
   const getStatusBadge = (status: string) => {
     const badges = {
-      pending: 'bg-yellow-100 text-yellow-800',
+      uploaded: 'bg-yellow-100 text-yellow-800',
       processing: 'bg-blue-100 text-blue-800',
       completed: 'bg-green-100 text-green-800',
       failed: 'bg-red-100 text-red-800',
@@ -84,7 +84,7 @@ const DocumentList: React.FC<DocumentListProps> = ({ documents, onDelete, onProc
                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              Uploaded: {formatDate(doc.uploaded_at)}
+              Uploaded: {formatDate(doc.created_at)}
             </div>
             {doc.processed_at && (
               <div className="flex items-center">
@@ -103,12 +103,21 @@ const DocumentList: React.FC<DocumentListProps> = ({ documents, onDelete, onProc
 
           {/* Actions */}
           <div className="flex space-x-2">
-            {doc.status === 'pending' && (
+            {doc.status === 'uploaded' && (
               <button
                 onClick={() => onProcess(doc.id)}
                 className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition"
               >
                 Process
+              </button>
+            )}
+            {doc.status === 'processing' && (
+              <button
+                className="flex-1 px-3 py-2 bg-blue-100 text-blue-700 text-sm rounded cursor-wait"
+                disabled
+                title="Processing document..."
+              >
+                Processing...
               </button>
             )}
             {doc.status === 'completed' && (
