@@ -1,0 +1,213 @@
+{
+  "dashboard": {
+    "title": "AI Document Intelligence Platform",
+    "tags": ["ai", "rag", "llm", "microservices"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 0,
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Service Health",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 0, "w": 24, "h": 4},
+        "targets": [
+          {
+            "expr": "up{job=~\".*-service|llm-proxy|api-gateway\"}",
+            "legendFormat": "{{job}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 1, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "HTTP Request Rate",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total[5m])) by (service)",
+            "legendFormat": "{{service}}",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(rag_http_requests_total[5m])) by (endpoint)",
+            "legendFormat": "RAG: {{endpoint}}",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {"format": "reqps", "label": "Requests/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 3,
+        "title": "HTTP Request Duration (p95)",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 4, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service))",
+            "legendFormat": "{{service}} p95",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(rag_http_request_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "RAG p95",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Duration"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 4,
+        "title": "LLM API Calls",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 12, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "sum(rate(llm_proxy_llm_requests_total[5m])) by (model, provider)",
+            "legendFormat": "{{provider}}/{{model}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "reqps", "label": "API Calls/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 5,
+        "title": "LLM Token Usage",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 12, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "sum(rate(llm_proxy_llm_tokens_total[5m])) by (token_type, model)",
+            "legendFormat": "{{model}} {{token_type}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Tokens/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Estimated API Cost (USD)",
+        "type": "singlestat",
+        "gridPos": {"x": 0, "y": 20, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "sum(llm_proxy_estimated_cost_usd_total)",
+            "refId": "A"
+          }
+        ],
+        "format": "currencyUSD",
+        "prefix": "Total:",
+        "valueName": "current"
+      },
+      {
+        "id": 7,
+        "title": "Cache Hit Rate",
+        "type": "gauge",
+        "gridPos": {"x": 6, "y": 20, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "sum(rate(rag_cache_hits_total[5m])) / (sum(rate(rag_cache_hits_total[5m])) + sum(rate(rag_cache_misses_total[5m])))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 0.5, "color": "yellow"},
+                {"value": 0.8, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 8,
+        "title": "RAG Queries Total",
+        "type": "singlestat",
+        "gridPos": {"x": 12, "y": 20, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "sum(rag_queries_total)",
+            "refId": "A"
+          }
+        ],
+        "valueName": "current"
+      },
+      {
+        "id": 9,
+        "title": "Vector Search Duration",
+        "type": "graph",
+        "gridPos": {"x": 18, "y": 20, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(rag_vector_search_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "p95",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(rag_vector_search_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "p50",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Duration"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 10,
+        "title": "RAG Query Processing Stages",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 24, "w": 24, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(rag_query_duration_seconds_bucket[5m])) by (le, stage))",
+            "legendFormat": "{{stage}} p95",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Duration"},
+          {"format": "short"}
+        ]
+      }
+    ]
+  }
+}

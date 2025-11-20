@@ -1,0 +1,56 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'ai-doc-intelligence'
+    environment: 'local'
+
+scrape_configs:
+  # Auth Service
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['host.docker.internal:8000']
+        labels:
+          service: 'auth-service'
+
+  # Document Service
+  - job_name: 'document-service'
+    static_configs:
+      - targets: ['host.docker.internal:8001']
+        labels:
+          service: 'document-service'
+
+  # LLM Proxy
+  - job_name: 'llm-proxy'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['host.docker.internal:8002']
+        labels:
+          service: 'llm-proxy'
+
+  # Ingestion Worker
+  - job_name: 'ingestion-worker'
+    static_configs:
+      - targets: ['host.docker.internal:8003']
+        labels:
+          service: 'ingestion-worker'
+
+  # RAG Service
+  - job_name: 'rag-service'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['host.docker.internal:8004']
+        labels:
+          service: 'rag-service'
+
+  # API Gateway
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['host.docker.internal:8080']
+        labels:
+          service: 'api-gateway'
+
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
