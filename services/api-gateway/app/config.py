@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     RAG_SERVICE_URL: str
 
     # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:30000"]
 
     model_config = SettingsConfigDict(
         env_file=".env",
