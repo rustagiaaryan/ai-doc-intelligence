@@ -1,6 +1,5 @@
 {
-  "dashboard": {
-    "title": "AI Document Intelligence Platform",
+  "title": "AI Document Intelligence Platform",
     "tags": ["ai", "rag", "llm", "microservices"],
     "timezone": "browser",
     "schemaVersion": 16,
@@ -209,5 +208,4 @@
         ]
       }
     ]
-  }
 }
