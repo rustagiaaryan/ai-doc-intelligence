@@ -51,6 +51,11 @@ spec:
             configMapKeyRef:
               name: ai-doc-config
               key: AUTH_SERVICE_URL
+        - name: INGESTION_WORKER_URL
+          valueFrom:
+            configMapKeyRef:
+              name: ai-doc-config
+              key: INGESTION_WORKER_URL
         - name: PORT
           value: "8001"
         livenessProbe:
