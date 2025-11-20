@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-service
+  namespace: ai-doc-intelligence
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rag-service
+  template:
+    metadata:
+      labels:
+        app: rag-service
+    spec:
+      containers:
+      - name: rag-service
+        image: ai-doc-rag:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8004
+          name: http
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ai-doc-secrets
+              key: DATABASE_URL
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: ai-doc-config
+              key: REDIS_URL_2
+        - name: LLM_PROXY_URL
+          valueFrom:
+            configMapKeyRef:
+              name: ai-doc-config
+              key: LLM_PROXY_URL
+        - name: AUTH_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: ai-doc-config
+              key: AUTH_SERVICE_URL
+        - name: TOP_K_RESULTS
+          valueFrom:
+            configMapKeyRef:
+              name: ai-doc-config
+              key: TOP_K_RESULTS
+        - name: SIMILARITY_THRESHOLD
+          valueFrom:
+            configMapKeyRef:
+              name: ai-doc-config
+              key: SIMILARITY_THRESHOLD
+        - name: MAX_CONTEXT_LENGTH
+          valueFrom:
+            configMapKeyRef:
+              name: ai-doc-config
+              key: MAX_CONTEXT_LENGTH
+        - name: PORT
+          value: "8004"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8004
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8004
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 10
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-service
+  namespace: ai-doc-intelligence
+spec:
+  type: ClusterIP
+  selector:
+    app: rag-service
+  ports:
+  - port: 8004
+    targetPort: 8004
+    name: http

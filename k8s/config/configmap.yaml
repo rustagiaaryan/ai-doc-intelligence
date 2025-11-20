@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-doc-config
+  namespace: ai-doc-intelligence
+data:
+  # Service URLs
+  AUTH_SERVICE_URL: "http://auth-service:8000"
+  DOCUMENT_SERVICE_URL: "http://document-service:8001"
+  LLM_PROXY_URL: "http://llm-proxy:8002"
+  INGESTION_WORKER_URL: "http://ingestion-worker:8003"
+  RAG_SERVICE_URL: "http://rag-service:8004"
+
+  # Redis URLs
+  REDIS_URL_0: "redis://redis:6379/0"
+  REDIS_URL_1: "redis://redis:6379/1"
+  REDIS_URL_2: "redis://redis:6379/2"
+
+  # S3 Configuration
+  S3_ENDPOINT_URL: "http://minio:9000"
+  S3_BUCKET_NAME: "documents"
+
+  # RAG Configuration
+  TOP_K_RESULTS: "5"
+  SIMILARITY_THRESHOLD: "0.3"
+  MAX_CONTEXT_LENGTH: "4000"
+
+  # Frontend Configuration
+  REACT_APP_API_URL: "http://localhost:8080"
