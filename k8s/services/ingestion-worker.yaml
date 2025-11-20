@@ -26,6 +26,11 @@ spec:
             secretKeyRef:
               name: ai-doc-secrets
               key: DATABASE_URL
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: ai-doc-config
+              key: REDIS_URL
         - name: LLM_PROXY_URL
           valueFrom:
             configMapKeyRef:
