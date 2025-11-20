@@ -26,6 +26,7 @@ class ChatCompletionResponse(BaseModel):
     provider: str
     usage: Dict[str, int]
     finish_reason: str
+    cached: bool = Field(False, description="Whether response was served from cache")
 
 
 class EmbeddingRequest(BaseModel):
@@ -39,3 +40,4 @@ class EmbeddingResponse(BaseModel):
     embeddings: List[List[float]]
     model: str
     num_embeddings: int
+    cache_hits: int = Field(0, description="Number of embeddings served from cache")

@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.routes import router as llm_router
+from app.cache import cache
 
 app = FastAPI(
     title="LLM Proxy Service",
@@ -19,6 +20,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize connections on startup."""
+    await cache.connect()
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Close connections on shutdown."""
+    await cache.disconnect()
+
 
 # Register routers
 app.include_router(llm_router)
