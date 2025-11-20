@@ -26,3 +26,4 @@ class QuestionResponse(BaseModel):
     answer: str
     retrieved_chunks: List[RetrievedChunk]
     total_chunks_found: int
+    cached: bool = Field(False, description="Whether response was served from cache")

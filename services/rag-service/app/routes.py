@@ -7,6 +7,7 @@ from app.auth_middleware import get_current_user
 from app.schemas import QuestionRequest, QuestionResponse, RetrievedChunk
 from app.retriever import vector_retriever
 from app.config import settings
+from app.cache import cache
 import httpx
 import logging
 
@@ -25,12 +26,25 @@ async def ask_question(
     Ask a question about documents using RAG.
 
     Steps:
-    1. Generate query embedding
-    2. Retrieve similar chunks via vector search
-    3. Build context from retrieved chunks
-    4. Generate answer using LLM with context
+    1. Check cache for previous identical query
+    2. Generate query embedding
+    3. Retrieve similar chunks via vector search
+    4. Build context from retrieved chunks
+    5. Generate answer using LLM with context
+    6. Cache the result
     """
     try:
+        # 1. Check cache first
+        document_id_filter = request.document_ids[0] if request.document_ids else None
+        cached_result = await cache.get_query_result(
+            query=request.question,
+            document_id=document_id_filter,
+            user_id=current_user['id']
+        )
+
+        if cached_result:
+            logger.info("Returning cached result")
+            return QuestionResponse(**cached_result, cached=True)
         # 1. Generate query embedding
         logger.info(f"Generating embedding for query: {request.question[:50]}...")
         query_embedding = await vector_retriever.generate_query_embedding(request.question)
@@ -92,7 +106,7 @@ Be concise and accurate."""
             llm_response = response.json()
             answer = llm_response["content"]
 
-        # 5. Return response
+        # 5. Build response
         retrieved_chunks_response = [
             RetrievedChunk(
                 chunk_id=chunk["chunk_id"],
@@ -104,12 +118,23 @@ Be concise and accurate."""
             for chunk in similar_chunks
         ]
 
-        return QuestionResponse(
+        response = QuestionResponse(
             question=request.question,
             answer=answer,
             retrieved_chunks=retrieved_chunks_response,
-            total_chunks_found=len(similar_chunks)
+            total_chunks_found=len(similar_chunks),
+            cached=False
         )
+
+        # 6. Cache the result
+        await cache.set_query_result(
+            query=request.question,
+            document_id=document_id_filter,
+            user_id=current_user['id'],
+            result=response.model_dump(exclude={"cached"})
+        )
+
+        return response
 
     except Exception as e:
         logger.error(f"Error processing question: {e}")
