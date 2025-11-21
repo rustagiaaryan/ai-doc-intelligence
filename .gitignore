@@ -57,6 +57,7 @@ out/
 # Kubernetes
 secrets/
 *.kubeconfig
+k8s/config/secrets.yaml
 
 # Terraform
 *.tfstate
