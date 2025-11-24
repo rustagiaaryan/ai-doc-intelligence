@@ -8,7 +8,8 @@ from app.chunker import TextChunker
 import httpx
 from app.config import settings
 import logging
-from typing import List
+import json
+from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,34 @@ class DocumentProcessor:
             logger.error(f"Error generating embeddings: {e}")
             raise
 
+    def _map_chunk_to_position(
+        self,
+        chunk_text: str,
+        pdf_data: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Map a text chunk to its position in the PDF.
+
+        Args:
+            chunk_text: Text of the chunk
+            pdf_data: PDF extraction data with positions
+
+        Returns:
+            Position metadata or None if not found
+        """
+        # Find which page and blocks contain this chunk
+        for page in pdf_data["pages"]:
+            for block in page["blocks"]:
+                # Check if chunk text is contained in this block
+                if chunk_text[:100] in block["text"]:
+                    return {
+                        "page_number": page["page_number"],
+                        "bbox": block["bbox"],
+                        "page_width": page["width"],
+                        "page_height": page["height"]
+                    }
+        return None
+
     async def process_document(
         self,
         document_id: str,
@@ -68,9 +97,15 @@ class DocumentProcessor:
             Processing result dict
         """
         try:
-            # 1. Extract text
+            # 1. Extract text (with positioning for PDFs)
             logger.info(f"Extracting text from document {document_id}")
-            text = self.text_extractor.extract_text(file_bytes, file_extension)
+            pdf_data = None
+
+            if file_extension.lower() == 'pdf':
+                pdf_data = self.text_extractor.extract_from_pdf_with_positions(file_bytes)
+                text = pdf_data["text"]
+            else:
+                text = self.text_extractor.extract_text(file_bytes, file_extension)
 
             if not text or not text.strip():
                 raise ValueError("No text content extracted from document")
@@ -91,13 +126,22 @@ class DocumentProcessor:
             # 4. Store chunks with embeddings in database
             logger.info(f"Storing chunks for document {document_id}")
             for idx, (chunk_text, embedding) in enumerate(zip(chunks, embeddings)):
+                # Map chunk to PDF position if available
+                metadata = None
+                if pdf_data:
+                    position = self._map_chunk_to_position(chunk_text, pdf_data)
+                    if position:
+                        metadata = json.dumps(position)
+
                 chunk = DocumentChunk(
                     document_id=document_id,
                     user_id=user_id,
                     chunk_index=idx,
                     chunk_text=chunk_text,
                     chunk_size=len(chunk_text),
-                    embedding=embedding
+                    embedding=embedding,
+                    page_number=position["page_number"] if position else None,
+                    chunk_metadata=metadata
                 )
                 db.add(chunk)
 
@@ -109,7 +153,8 @@ class DocumentProcessor:
                 "status": "success",
                 "document_id": document_id,
                 "chunks_count": len(chunks),
-                "total_characters": len(text)
+                "total_characters": len(text),
+                "has_positioning": pdf_data is not None
             }
 
         except Exception as e:
