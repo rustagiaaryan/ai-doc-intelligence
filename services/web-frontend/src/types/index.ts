@@ -32,6 +32,18 @@ export interface Document {
   processed_at: string | null;
 }
 
+export interface ChunkPosition {
+  page_number: number;
+  bbox: {
+    x0: number;
+    y0: number;
+    x1: number;
+    y1: number;
+  };
+  page_width: number;
+  page_height: number;
+}
+
 export interface DocumentChunk {
   id: string;
   document_id: string;
@@ -39,6 +51,8 @@ export interface DocumentChunk {
   content: string;
   metadata: Record<string, any>;
   similarity_score?: number;
+  page_number?: number;
+  position?: ChunkPosition;
 }
 
 export interface ChatMessage {
