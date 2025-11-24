@@ -46,6 +46,11 @@ spec:
             configMapKeyRef:
               name: ai-doc-config
               key: S3_BUCKET_NAME
+        - name: S3_REGION
+          valueFrom:
+            configMapKeyRef:
+              name: ai-doc-config
+              key: S3_REGION
         - name: AUTH_SERVICE_URL
           valueFrom:
             configMapKeyRef:

@@ -121,12 +121,69 @@ cp k8s/config/secrets.yaml.template k8s/config/secrets.yaml
 Edit `k8s/config/secrets.yaml` and add your credentials:
 
 ```yaml
+# AWS S3 Credentials
+S3_ACCESS_KEY_ID: "your-aws-access-key-id"
+S3_SECRET_ACCESS_KEY: "your-aws-secret-access-key"
+
+# OpenAI API
 OPENAI_API_KEY: "your-openai-api-key"
+
+# Google OAuth
 GOOGLE_CLIENT_ID: "your-google-client-id"
 GOOGLE_CLIENT_SECRET: "your-google-client-secret"
 ```
 
+Also update `k8s/config/configmap.yaml` with your AWS S3 bucket name and region:
+
+```yaml
+S3_BUCKET_NAME: "your-bucket-name"  # Must be globally unique
+S3_REGION: "us-east-1"  # Your AWS region
+S3_ENDPOINT_URL: ""  # Empty for AWS S3
+```
+
 **Note:** The actual `secrets.yaml` file is gitignored for security. Never commit real credentials to version control.
+
+### AWS S3 Setup (Production)
+
+For production deployment with AWS S3:
+
+1. **Create S3 Bucket:**
+```bash
+aws s3 mb s3://ai-doc-intelligence-prod --region us-east-1
+```
+
+2. **Enable Versioning (recommended):**
+```bash
+aws s3api put-bucket-versioning \
+  --bucket ai-doc-intelligence-prod \
+  --versioning-configuration Status=Enabled
+```
+
+3. **Create IAM User with S3 Access:**
+```bash
+# Create IAM user
+aws iam create-user --user-name ai-doc-s3-user
+
+# Attach S3 policy
+aws iam attach-user-policy \
+  --user-name ai-doc-s3-user \
+  --policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess
+
+# Create access keys
+aws iam create-access-key --user-name ai-doc-s3-user
+```
+
+4. **Configure Lifecycle Policy (optional, for cost optimization):**
+```bash
+# Move to Infrequent Access after 90 days
+aws s3api put-bucket-lifecycle-configuration \
+  --bucket ai-doc-intelligence-prod \
+  --lifecycle-configuration file://s3-lifecycle.json
+```
+
+5. **Update secrets.yaml with AWS credentials** from step 3
+
+For local development, you can use MinIO by setting `S3_ENDPOINT_URL: "http://minio:9000"` in configmap.yaml and deploying the MinIO infrastructure.
 
 ### Deploy to Kubernetes
 

@@ -17,9 +17,10 @@ data:
   REDIS_URL_1: "redis://redis:6379/1"
   REDIS_URL_2: "redis://redis:6379/2"
 
-  # S3 Configuration
-  S3_ENDPOINT_URL: "http://minio:9000"
-  S3_BUCKET_NAME: "documents"
+  # S3 Configuration (AWS S3 - leave endpoint empty for AWS, or set for MinIO local dev)
+  S3_ENDPOINT_URL: ""  # Empty for AWS S3, "http://minio:9000" for local development
+  S3_BUCKET_NAME: "ai-doc-intelligence-prod"  # Change to your AWS S3 bucket name
+  S3_REGION: "us-east-1"  # AWS region for S3 bucket
 
   # RAG Configuration
   TOP_K_RESULTS: "5"
