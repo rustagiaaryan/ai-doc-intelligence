@@ -20,6 +20,7 @@ class S3Client:
         )
         self.bucket_name = settings.S3_BUCKET_NAME
         self.endpoint_url = settings.S3_ENDPOINT_URL
+        self.public_endpoint_url = settings.S3_PUBLIC_ENDPOINT_URL or settings.S3_ENDPOINT_URL
         self.use_ssl = settings.USE_SSL
 
     async def ensure_bucket_exists(self):
@@ -141,6 +142,9 @@ class S3Client:
                     Params={'Bucket': self.bucket_name, 'Key': s3_key},
                     ExpiresIn=expiration
                 )
+                # Replace internal endpoint with public endpoint for browser access
+                if self.public_endpoint_url != self.endpoint_url:
+                    url = url.replace(self.endpoint_url, self.public_endpoint_url)
                 return url
         except Exception as e:
             logger.error(f"Error generating presigned URL: {e}")

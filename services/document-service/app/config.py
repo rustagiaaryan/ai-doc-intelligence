@@ -17,6 +17,7 @@ class Settings(BaseSettings):
 
     # S3/MinIO Configuration
     S3_ENDPOINT_URL: str
+    S3_PUBLIC_ENDPOINT_URL: str = ""  # External URL for presigned URLs (e.g., http://localhost:30900)
     S3_ACCESS_KEY_ID: str
     S3_SECRET_ACCESS_KEY: str
     S3_BUCKET_NAME: str = "documents"
