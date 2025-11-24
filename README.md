@@ -185,6 +185,125 @@ aws s3api put-bucket-lifecycle-configuration \
 
 For local development, you can use MinIO by setting `S3_ENDPOINT_URL: "http://minio:9000"` in configmap.yaml and deploying the MinIO infrastructure.
 
+### AWS RDS PostgreSQL Setup (Production)
+
+For production deployment with AWS RDS PostgreSQL:
+
+1. **Create RDS PostgreSQL Instance:**
+```bash
+aws rds create-db-instance \
+  --db-instance-identifier ai-doc-intelligence-db \
+  --db-instance-class db.t3.micro \
+  --engine postgres \
+  --engine-version 16.1 \
+  --master-username docai_admin \
+  --master-user-password 'YourSecurePassword123!' \
+  --allocated-storage 20 \
+  --storage-type gp3 \
+  --vpc-security-group-ids sg-xxxxx \
+  --db-subnet-group-name your-subnet-group \
+  --publicly-accessible \
+  --backup-retention-period 7 \
+  --preferred-backup-window "03:00-04:00" \
+  --preferred-maintenance-window "mon:04:00-mon:05:00" \
+  --enable-cloudwatch-logs-exports '["postgresql"]' \
+  --storage-encrypted
+```
+
+2. **Enable pgvector Extension:**
+
+Once the RDS instance is created, connect using psql and enable the extension:
+
+```bash
+# Get the RDS endpoint
+aws rds describe-db-instances \
+  --db-instance-identifier ai-doc-intelligence-db \
+  --query 'DBInstances[0].Endpoint.Address' \
+  --output text
+
+# Connect to RDS
+psql -h your-rds-endpoint.rds.amazonaws.com -U docai_admin -d postgres
+
+# Create database and enable pgvector
+CREATE DATABASE docai;
+\c docai
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+3. **Configure Security Group:**
+
+Allow inbound PostgreSQL traffic (port 5432) from your Kubernetes cluster or VPC:
+
+```bash
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-xxxxx \
+  --protocol tcp \
+  --port 5432 \
+  --cidr your-cluster-cidr/16
+```
+
+4. **Update secrets.yaml with RDS connection string:**
+
+```yaml
+DATABASE_URL: postgresql+asyncpg://docai_admin:YourSecurePassword123!@your-rds-endpoint.rds.amazonaws.com:5432/docai
+```
+
+**Important Notes:**
+- RDS PostgreSQL supports pgvector extension (required for vector search)
+- Use SSL/TLS for production connections
+- Enable automated backups and Multi-AZ for high availability
+- For local development, use the self-hosted PostgreSQL deployed in k8s/infrastructure/
+
+### AWS ElastiCache Redis Setup (Production)
+
+For production deployment with AWS ElastiCache Redis:
+
+1. **Create ElastiCache Redis Cluster:**
+```bash
+aws elasticache create-cache-cluster \
+  --cache-cluster-id ai-doc-intelligence-redis \
+  --engine redis \
+  --engine-version 7.0 \
+  --cache-node-type cache.t3.micro \
+  --num-cache-nodes 1 \
+  --security-group-ids sg-xxxxx \
+  --cache-subnet-group-name your-subnet-group
+```
+
+2. **Get Redis Endpoint:**
+```bash
+aws elasticache describe-cache-clusters \
+  --cache-cluster-id ai-doc-intelligence-redis \
+  --show-cache-node-info \
+  --query 'CacheClusters[0].CacheNodes[0].Endpoint' \
+  --output table
+```
+
+3. **Update configmap.yaml with ElastiCache endpoints:**
+
+```yaml
+# Replace the Redis URLs with ElastiCache endpoint
+REDIS_URL: "redis://your-redis-endpoint.cache.amazonaws.com:6379/0"
+REDIS_URL_0: "redis://your-redis-endpoint.cache.amazonaws.com:6379/0"
+REDIS_URL_1: "redis://your-redis-endpoint.cache.amazonaws.com:6379/1"
+REDIS_URL_2: "redis://your-redis-endpoint.cache.amazonaws.com:6379/2"
+```
+
+4. **Configure Security Group:**
+```bash
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-xxxxx \
+  --protocol tcp \
+  --port 6379 \
+  --cidr your-cluster-cidr/16
+```
+
+**Benefits:**
+- Managed service with automatic failover
+- Automated backups and snapshots
+- In-memory performance for caching
+- For local development, use the self-hosted Redis deployed in k8s/infrastructure/
+
 ### Deploy to Kubernetes
 
 ```bash
@@ -201,6 +320,9 @@ kubectl apply -f k8s/infrastructure/
 kubectl wait --for=condition=ready pod -l app=postgres -n ai-doc-intelligence --timeout=300s
 kubectl wait --for=condition=ready pod -l app=redis -n ai-doc-intelligence --timeout=300s
 kubectl wait --for=condition=ready pod -l app=minio -n ai-doc-intelligence --timeout=300s
+
+# Run database migrations for chat history
+kubectl exec -it -n ai-doc-intelligence deployment/postgres -- psql -U docai -d docai -f - < services/rag-service/migrations/002_add_chat_history.sql
 
 # Deploy application services
 kubectl apply -f k8s/services/
