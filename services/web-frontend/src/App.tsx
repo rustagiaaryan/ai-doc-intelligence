@@ -7,7 +7,7 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import Chat from './pages/Chat';
+import ChatWithHistory from './pages/ChatWithHistory';
 import './App.css';
 
 // Get Google Client ID from environment variable
@@ -32,7 +32,7 @@ function App() {
               path="/chat"
               element={
                 <ProtectedRoute>
-                  <Chat />
+                  <ChatWithHistory />
                 </ProtectedRoute>
               }
             />

@@ -45,6 +45,29 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  source_chunks?: DocumentChunk[];
+}
+
+export interface Conversation {
+  id: string;
+  user_id: string;
+  document_id: string | null;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  source_chunks: string | null;
+  created_at: string;
+}
+
+export interface ConversationWithMessages extends Conversation {
+  messages: Message[];
 }
 
 export interface AskRequest {
@@ -52,6 +75,7 @@ export interface AskRequest {
   document_ids?: string[];
   top_k?: number;
   llm_model?: string;
+  conversation_id?: string;
 }
 
 export interface AskResponse {
@@ -59,6 +83,7 @@ export interface AskResponse {
   retrieved_chunks: DocumentChunk[];
   model_used: string;
   processing_time_ms: number;
+  conversation_id?: string;
 }
 
 export interface ApiError {
