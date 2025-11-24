@@ -110,17 +110,30 @@ Be concise and accurate."""
             llm_response = response.json()
             answer = llm_response["content"]
 
-        # 5. Build response
-        retrieved_chunks_response = [
-            RetrievedChunk(
-                chunk_id=chunk["chunk_id"],
-                document_id=chunk["document_id"],
-                chunk_text=chunk["chunk_text"][:500] + "..." if len(chunk["chunk_text"]) > 500 else chunk["chunk_text"],
-                similarity_score=chunk["similarity_score"],
-                chunk_index=chunk["chunk_index"]
+        # 5. Build response with positioning data
+        retrieved_chunks_response = []
+        for chunk in similar_chunks:
+            # Parse chunk metadata if available
+            position = None
+            if chunk.get("chunk_metadata"):
+                try:
+                    metadata = json.loads(chunk["chunk_metadata"])
+                    from app.schemas import ChunkPosition
+                    position = ChunkPosition(**metadata)
+                except (json.JSONDecodeError, TypeError, KeyError) as e:
+                    logger.warning(f"Failed to parse chunk metadata: {e}")
+
+            retrieved_chunks_response.append(
+                RetrievedChunk(
+                    chunk_id=chunk["chunk_id"],
+                    document_id=chunk["document_id"],
+                    chunk_text=chunk["chunk_text"][:500] + "..." if len(chunk["chunk_text"]) > 500 else chunk["chunk_text"],
+                    similarity_score=chunk["similarity_score"],
+                    chunk_index=chunk["chunk_index"],
+                    page_number=chunk.get("page_number"),
+                    position=position
+                )
             )
-            for chunk in similar_chunks
-        ]
 
         response = QuestionResponse(
             question=request.question,

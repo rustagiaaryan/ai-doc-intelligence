@@ -13,6 +13,14 @@ class QuestionRequest(BaseModel):
     conversation_id: Optional[str] = Field(None, description="Conversation ID to save to")
 
 
+class ChunkPosition(BaseModel):
+    """Schema for chunk position data in PDF."""
+    page_number: int
+    bbox: dict  # {x0, y0, x1, y1}
+    page_width: float
+    page_height: float
+
+
 class RetrievedChunk(BaseModel):
     """Schema for a retrieved document chunk."""
     chunk_id: str
@@ -20,6 +28,8 @@ class RetrievedChunk(BaseModel):
     chunk_text: str
     similarity_score: float
     chunk_index: int
+    page_number: Optional[int] = None
+    position: Optional[ChunkPosition] = None
 
 
 class QuestionResponse(BaseModel):

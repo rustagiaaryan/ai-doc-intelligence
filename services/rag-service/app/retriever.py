@@ -92,6 +92,8 @@ class VectorRetriever:
                 document_id,
                 chunk_text,
                 chunk_index,
+                page_number,
+                chunk_metadata,
                 1 - (embedding <=> CAST(:embedding AS vector)) AS similarity
             FROM document_chunks
             WHERE user_id = :user_id
@@ -110,7 +112,7 @@ class VectorRetriever:
 
         chunks = []
         for row in rows:
-            similarity = float(row[4])
+            similarity = float(row[6])
             logger.info(f"Chunk {row[0][:8]}... similarity: {similarity} (threshold: {settings.SIMILARITY_THRESHOLD})")
             if similarity >= settings.SIMILARITY_THRESHOLD:
                 chunks.append({
@@ -118,6 +120,8 @@ class VectorRetriever:
                     "document_id": row[1],
                     "chunk_text": row[2],
                     "chunk_index": row[3],
+                    "page_number": row[4],
+                    "chunk_metadata": row[5],
                     "similarity_score": similarity
                 })
 
