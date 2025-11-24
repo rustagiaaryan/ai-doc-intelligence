@@ -2,14 +2,18 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from app.database import get_db
 from app.auth_middleware import get_current_user
 from app.schemas import QuestionRequest, QuestionResponse, RetrievedChunk
+from app.models import Conversation, Message
 from app.retriever import vector_retriever
 from app.config import settings
 from app.cache import cache
 import httpx
 import logging
+import uuid
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +130,57 @@ Be concise and accurate."""
             cached=False
         )
 
-        # 6. Cache the result
+        # 6. Save to conversation history if conversation_id provided
+        if request.conversation_id:
+            try:
+                # Verify conversation exists and belongs to user
+                conv_query = select(Conversation).where(
+                    Conversation.id == request.conversation_id,
+                    Conversation.user_id == current_user['id']
+                )
+                conv_result = await db.execute(conv_query)
+                conversation = conv_result.scalar_one_or_none()
+
+                if conversation:
+                    # Save user message
+                    user_message = Message(
+                        id=str(uuid.uuid4()),
+                        conversation_id=request.conversation_id,
+                        role="user",
+                        content=request.question
+                    )
+                    db.add(user_message)
+
+                    # Save assistant message with source chunks
+                    source_chunks_json = json.dumps([
+                        {
+                            "chunk_id": chunk.chunk_id,
+                            "document_id": chunk.document_id,
+                            "similarity_score": chunk.similarity_score,
+                            "chunk_index": chunk.chunk_index
+                        }
+                        for chunk in retrieved_chunks_response
+                    ])
+
+                    assistant_message = Message(
+                        id=str(uuid.uuid4()),
+                        conversation_id=request.conversation_id,
+                        role="assistant",
+                        content=answer,
+                        source_chunks=source_chunks_json
+                    )
+                    db.add(assistant_message)
+
+                    await db.commit()
+                    response.conversation_id = request.conversation_id
+                    logger.info(f"Saved messages to conversation {request.conversation_id}")
+                else:
+                    logger.warning(f"Conversation {request.conversation_id} not found for user {current_user['id']}")
+            except Exception as e:
+                logger.error(f"Error saving to conversation: {e}")
+                # Don't fail the request if conversation save fails
+
+        # 7. Cache the result
         await cache.set_query_result(
             query=request.question,
             document_id=document_id_filter,

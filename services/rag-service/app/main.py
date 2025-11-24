@@ -4,6 +4,7 @@ from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.routes import router as rag_router
+from app.conversation_routes import router as conversation_router
 from app.cache import cache
 from app.metrics import MetricsMiddleware
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
@@ -41,6 +42,7 @@ async def shutdown_event():
 
 # Register routers
 app.include_router(rag_router)
+app.include_router(conversation_router)
 
 
 @app.get("/health")
