@@ -8,6 +8,7 @@ from app.proxy import proxy_request
 auth_router = APIRouter(prefix="/api/auth", tags=["Auth"])
 document_router = APIRouter(prefix="/api/documents", tags=["Documents"])
 rag_router = APIRouter(prefix="/api/rag", tags=["RAG"])
+conversations_router = APIRouter(prefix="/api/conversations", tags=["Conversations"])
 ingestion_router = APIRouter(prefix="/api/process", tags=["Processing"])
 
 
@@ -43,6 +44,18 @@ async def proxy_rag(request: Request, path: str = ""):
         target_url=settings.RAG_SERVICE_URL,
         path=f"rag/{path}" if path else "rag",
         timeout=60.0  # Longer timeout for LLM calls
+    )
+
+
+# Conversation Routes (also proxied to RAG service)
+@conversations_router.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+async def proxy_conversations(request: Request, path: str = ""):
+    """Proxy all conversation requests to RAG service."""
+    return await proxy_request(
+        request=request,
+        target_url=settings.RAG_SERVICE_URL,
+        path=f"conversations/{path}" if path else "conversations",
+        timeout=30.0
     )
 
 
