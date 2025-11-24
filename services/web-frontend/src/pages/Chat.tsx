@@ -7,6 +7,7 @@ import { documentsApi } from '../api/documents';
 import { ragApi } from '../api/rag';
 import { Document, ChatMessage, DocumentChunk } from '../types';
 import { formatApiError } from '../utils/errorHandler';
+import { PDFModal } from '../components/PDF/PDFModal';
 
 const Chat: React.FC = () => {
   const navigate = useNavigate();
@@ -17,6 +18,8 @@ const Chat: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [retrievedChunks, setRetrievedChunks] = useState<DocumentChunk[]>([]);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [selectedDocumentForPdf, setSelectedDocumentForPdf] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -100,6 +103,12 @@ const Chat: React.FC = () => {
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  const handleViewInPdf = (docId: string) => {
+    console.log('[Chat] Opening PDF modal for document:', docId);
+    setSelectedDocumentForPdf(docId);
+    setIsPdfModalOpen(true);
   };
 
   return (
@@ -232,9 +241,22 @@ const Chat: React.FC = () => {
           {/* Retrieved Chunks Panel */}
           {retrievedChunks.length > 0 && (
             <div className="border-t bg-gray-50 p-4">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-semibold text-gray-700">
+                  Source Chunks ({retrievedChunks.length})
+                </span>
+                {retrievedChunks[0]?.document_id && (
+                  <button
+                    onClick={() => handleViewInPdf(retrievedChunks[0].document_id)}
+                    className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                  >
+                    View in PDF
+                  </button>
+                )}
+              </div>
               <details className="group">
                 <summary className="cursor-pointer text-sm font-semibold text-gray-700 hover:text-gray-900">
-                  View Source Chunks ({retrievedChunks.length})
+                  Expand Details
                 </summary>
                 <div className="mt-3 space-y-2 max-h-48 overflow-y-auto">
                   {retrievedChunks.map((chunk, index) => (
@@ -285,6 +307,16 @@ const Chat: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* PDF Modal */}
+      {selectedDocumentForPdf && (
+        <PDFModal
+          isOpen={isPdfModalOpen}
+          onClose={() => setIsPdfModalOpen(false)}
+          documentId={selectedDocumentForPdf}
+          highlightedChunks={retrievedChunks.filter(chunk => chunk.document_id === selectedDocumentForPdf)}
+        />
+      )}
     </div>
   );
 };

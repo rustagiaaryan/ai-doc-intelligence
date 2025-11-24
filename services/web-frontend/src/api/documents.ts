@@ -21,8 +21,8 @@ export const documentsApi = {
     await apiClient.delete(`/api/documents/${documentId}`);
   },
 
-  async getDownloadUrl(documentId: string): Promise<{ download_url: string }> {
-    return apiClient.get<{ download_url: string }>(`/api/documents/${documentId}/download`);
+  async getDownloadUrl(documentId: string): Promise<{ url: string }> {
+    return apiClient.get<{ url: string }>(`/api/documents/${documentId}/download`);
   },
 
   async processDocument(documentId: string): Promise<{ message: string; status: string }> {
