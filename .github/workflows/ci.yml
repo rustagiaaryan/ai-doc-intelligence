@@ -1,0 +1,312 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test-auth-service:
+    name: Test Auth Service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-auth-${{ hashFiles('services/auth-service/requirements.txt') }}
+
+      - name: Install dependencies
+        working-directory: services/auth-service
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio httpx
+
+      - name: Run tests
+        working-directory: services/auth-service
+        run: pytest tests/ -v --cov=app --cov-report=xml --cov-report=term
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: services/auth-service/coverage.xml
+          flags: auth-service
+
+  test-document-service:
+    name: Test Document Service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-document-${{ hashFiles('services/document-service/requirements.txt') }}
+
+      - name: Install dependencies
+        working-directory: services/document-service
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio httpx
+
+      - name: Run tests
+        working-directory: services/document-service
+        run: pytest tests/ -v --cov=app --cov-report=xml --cov-report=term
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: services/document-service/coverage.xml
+          flags: document-service
+
+  test-rag-service:
+    name: Test RAG Service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-rag-${{ hashFiles('services/rag-service/requirements.txt') }}
+
+      - name: Install dependencies
+        working-directory: services/rag-service
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio httpx
+
+      - name: Run tests
+        working-directory: services/rag-service
+        run: pytest tests/ -v --cov=app --cov-report=xml --cov-report=term
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: services/rag-service/coverage.xml
+          flags: rag-service
+
+  test-ingestion-worker:
+    name: Test Ingestion Worker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-ingestion-${{ hashFiles('services/ingestion-worker/requirements.txt') }}
+
+      - name: Install dependencies
+        working-directory: services/ingestion-worker
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio httpx
+
+      - name: Run tests
+        working-directory: services/ingestion-worker
+        run: pytest tests/ -v --cov=app --cov-report=xml --cov-report=term
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: services/ingestion-worker/coverage.xml
+          flags: ingestion-worker
+
+  test-llm-proxy:
+    name: Test LLM Proxy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-llm-${{ hashFiles('services/llm-proxy/requirements.txt') }}
+
+      - name: Install dependencies
+        working-directory: services/llm-proxy
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio httpx
+
+      - name: Run tests
+        working-directory: services/llm-proxy
+        run: pytest tests/ -v --cov=app --cov-report=xml --cov-report=term
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: services/llm-proxy/coverage.xml
+          flags: llm-proxy
+
+  test-api-gateway:
+    name: Test API Gateway
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-gateway-${{ hashFiles('services/api-gateway/requirements.txt') }}
+
+      - name: Install dependencies
+        working-directory: services/api-gateway
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio httpx
+
+      - name: Run tests
+        working-directory: services/api-gateway
+        run: pytest tests/ -v --cov=app --cov-report=xml --cov-report=term
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: services/api-gateway/coverage.xml
+          flags: api-gateway
+
+  test-frontend:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: services/web-frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: services/web-frontend
+        run: npm ci
+
+      - name: Run linter
+        working-directory: services/web-frontend
+        run: npm run lint || true
+
+      - name: Run tests
+        working-directory: services/web-frontend
+        run: npm test -- --coverage --watchAll=false || true
+
+      - name: Build
+        working-directory: services/web-frontend
+        run: npm run build
+
+  lint-python:
+    name: Lint Python Code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install linting tools
+        run: |
+          pip install flake8 black isort mypy
+
+      - name: Run flake8
+        run: |
+          flake8 services/*/app --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 services/*/app --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Check formatting with black
+        run: black --check services/*/app || true
+
+      - name: Check import sorting with isort
+        run: isort --check-only services/*/app || true
+
+  build-images:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [test-auth-service, test-document-service, test-rag-service, test-ingestion-worker, test-llm-proxy, test-api-gateway, test-frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+        if: ${{ secrets.DOCKER_USERNAME != '' }}
+
+      - name: Build and push images
+        run: |
+          services=("auth-service" "document-service" "rag-service" "ingestion-worker" "llm-proxy" "api-gateway" "web-frontend")
+          for service in "${services[@]}"; do
+            echo "Building $service..."
+            docker build -t ai-doc-$service:latest services/$service
+            # Uncomment to push to registry
+            # docker tag ai-doc-$service:latest ${{ secrets.DOCKER_USERNAME }}/ai-doc-$service:latest
+            # docker push ${{ secrets.DOCKER_USERNAME }}/ai-doc-$service:latest
+          done
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [build-images]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pytest pytest-asyncio httpx requests
+
+      - name: Run integration tests
+        run: |
+          # Add integration tests here
+          echo "Integration tests would run here"
