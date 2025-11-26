@@ -1,523 +1,297 @@
 # AI Document Intelligence Platform
 
-A production-grade microservices platform for intelligent document processing and AI-powered question-answering using Retrieval-Augmented Generation (RAG).
+A microservices-based document processing platform that uses RAG (Retrieval-Augmented Generation) to answer questions about uploaded documents. Built as part of my learning journey into modern backend architecture, AI integration, and cloud-native deployment.
 
-## Overview
+## What This Project Does
 
-This platform enables users to upload documents (PDF, DOCX, TXT, MD), automatically extract and process text, generate vector embeddings, and ask natural language questions with AI-powered answers backed by source citations. The system uses a microservices architecture deployed on Kubernetes, integrating OpenAI's GPT models for embeddings and question answering.
+Users can upload PDF, DOCX, TXT, or Markdown files, and the system automatically extracts text, breaks it into chunks, generates vector embeddings, and stores them in a PostgreSQL database. When users ask questions, the system searches for relevant text chunks using vector similarity, then uses GPT-3.5 to generate answers based on those chunks. The frontend highlights the exact locations in the PDF where the information came from.
 
-## Technologies
+## Technologies I Used
 
-### Backend
-- **Python 3.11** with FastAPI for microservices
-- **PostgreSQL 16** with pgvector extension for vector storage
-- **Redis 7** for caching embeddings and query results
-- **MinIO/AWS S3** for document storage
-- **SQLAlchemy** (async) with Alembic for database management
+### Backend (Python 3.11)
+- **FastAPI** - Async web framework for all microservices
+- **PostgreSQL 16** - Database with pgvector extension for storing vector embeddings
+- **Redis 7** - Caching layer for embeddings and API responses
+- **MinIO** - S3-compatible object storage for documents (can also use AWS S3)
+- **SQLAlchemy** - Async ORM for database operations
+- **aioboto3** - Async S3 client for file operations
 
-### Frontend
-- **React 19** with TypeScript
-- **TailwindCSS 4** for styling
-- **React Router v7** for navigation
-- **Google OAuth 2.0** for authentication
+### Frontend (React 19 + TypeScript)
+- **React 19** - UI framework
+- **TypeScript** - Type safety
+- **Tailwind CSS 4** - Styling
+- **React Router v7** - Navigation
+- **react-pdf** - PDF rendering and highlighting
+- **Google OAuth 2.0** - User authentication
 
-### AI/ML
-- **OpenAI GPT-3.5-turbo** for question answering
-- **OpenAI text-embedding-3-small** for vector embeddings (1536 dimensions)
-- **RAG pipeline** with semantic similarity search using cosine distance
+### AI/ML Integration
+- **OpenAI GPT-3.5-turbo** - Question answering
+- **OpenAI text-embedding-3-small** - Converting text to 1536-dimensional vectors
+- **pgvector** - PostgreSQL extension for vector similarity search (cosine distance)
 
-### DevOps
-- **Docker** and Docker Compose for containerization
-- **Kubernetes** for orchestration
-- **Prometheus** for metrics collection
-- **Nginx** for frontend serving
+### Infrastructure & DevOps
+- **Docker** - Containerization with multi-stage builds
+- **Kubernetes** - Orchestration (tested on Docker Desktop)
+- **GitHub Actions** - CI/CD pipeline with automated testing
+- **pytest** - Unit testing framework
+- **Terraform** - Infrastructure as Code for AWS resources (VPC, RDS, S3, ElastiCache)
+- **Prometheus** - Metrics collection (basic setup)
+- **Grafana** - Monitoring dashboards
 
 ## Architecture
 
-The platform consists of 7 microservices:
+The system is split into 7 independent microservices:
 
-1. **Auth Service** (port 8000) - Google OAuth authentication and JWT token management
-2. **Document Service** (port 8001) - Document upload, storage, and metadata management
-3. **LLM Proxy** (port 8002) - OpenAI API integration with response caching
-4. **Ingestion Worker** (port 8003) - Text extraction, document chunking, and embedding generation
-5. **RAG Service** (port 8004) - Vector similarity search and AI-powered question answering
-6. **API Gateway** (port 8080) - Unified API entry point with request routing
-7. **Web Frontend** (port 3000/30000) - React-based user interface
-
-### Data Flow
-
-1. User uploads document via frontend
-2. Document Service stores file in S3/MinIO and creates database record
-3. User triggers processing, Document Service sends request to Ingestion Worker
-4. Ingestion Worker extracts text, chunks into segments, generates embeddings via LLM Proxy
-5. Embeddings stored in PostgreSQL with pgvector
-6. User asks questions via RAG Service
-7. RAG Service performs vector similarity search, retrieves relevant chunks
-8. LLM Proxy sends question + context to OpenAI GPT for answer generation
-9. Answer returned with source chunk citations and similarity scores
+1. **Auth Service** (8000) - Handles Google OAuth login and JWT token management
+2. **Document Service** (8001) - Manages document uploads and downloads to/from S3
+3. **LLM Proxy** (8002) - Centralizes all OpenAI API calls and implements caching
+4. **Ingestion Worker** (8003) - Extracts text from documents, chunks it, and generates embeddings
+5. **RAG Service** (8004) - Performs vector searches and generates answers using GPT
+6. **API Gateway** (8080) - Routes requests to appropriate backend services
+7. **Web Frontend** (30000) - React app for users to interact with the system
 
 ## How It Works
 
-### Document Processing
+### Document Processing Flow
 
-Documents are chunked into smaller segments (approximately 500-1000 characters) to overcome LLM context limitations and improve retrieval precision. Each chunk is converted into a 1536-dimensional vector embedding using OpenAI's embedding model. These vectors are stored in PostgreSQL with the pgvector extension for efficient similarity search.
+1. User uploads a document through the React frontend
+2. Document Service stores the file in MinIO/S3 and creates a database record
+3. Document Service triggers the Ingestion Worker
+4. Ingestion Worker:
+   - Extracts text (using PyMuPDF for PDFs, python-docx for Word files)
+   - Splits text into chunks (~500-1000 characters with 100 character overlap)
+   - Sends chunks to LLM Proxy to generate embeddings
+   - Stores chunks and embeddings in PostgreSQL
+5. Document status updates to "completed"
 
-### Question Answering (RAG)
+### Question Answering Flow (RAG)
 
-When a user asks a question:
-1. The question is converted to a vector embedding
-2. Vector similarity search (cosine distance) retrieves the top K most relevant document chunks
-3. The question and retrieved chunks are sent to GPT-3.5-turbo as context
-4. GPT generates an answer based on the provided context
-5. The answer is returned along with source chunks and similarity scores (0-100%)
+1. User types a question in the chat interface
+2. RAG Service converts the question to a vector embedding
+3. Performs cosine similarity search in PostgreSQL to find top 5 most relevant chunks
+4. Constructs a prompt with the question and retrieved chunks
+5. Sends to GPT-3.5-turbo via LLM Proxy
+6. Returns the answer along with source chunks and similarity scores
+7. Frontend displays the answer and allows viewing highlighted sections in the PDF
 
 ### Caching Strategy
 
-Redis caches:
-- Document embeddings to avoid regeneration
-- Query embeddings for repeated questions
-- LLM responses for identical queries
-- JWT tokens and session data
+Redis is used throughout to minimize costs and latency:
+- Document embeddings (so we don't re-embed the same text)
+- Question embeddings (for frequently asked questions)
+- LLM responses (exact same questions get cached responses)
+- Session tokens
 
-## Kubernetes Deployment
+## Features I Implemented
+
+- User authentication with Google OAuth
+- Document upload (PDF, DOCX, TXT, MD)
+- Automatic text extraction and processing
+- Vector-based semantic search
+- GPT-powered question answering
+- PDF highlighting showing exact source locations
+- Chat history with persistent conversations
+- Real-time status updates during processing
+- Responsive UI with dark/light modes
+
+## Setup Instructions
 
 ### Prerequisites
 
-- **kubectl** (v1.31+)
-- **Docker Desktop** with Kubernetes enabled, OR
-- **minikube** (v1.30+), OR
-- **kind** (v0.20+)
+- Docker Desktop with Kubernetes enabled
+- Python 3.11+
+- Node.js 20+
+- Google Cloud account (for OAuth credentials)
+- OpenAI API key
 
-### Build Docker Images
+### Environment Variables
+
+Create `k8s/config/secrets.yaml`:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ai-doc-secrets
+  namespace: ai-doc-intelligence
+type: Opaque
+stringData:
+  DATABASE_URL: "postgresql://docai:your-password@postgres:5432/docai"
+  S3_ACCESS_KEY_ID: "minioadmin"
+  S3_SECRET_ACCESS_KEY: "minioadmin"
+  OPENAI_API_KEY: "your-openai-api-key"
+  GOOGLE_CLIENT_ID: "your-google-client-id"
+  GOOGLE_CLIENT_SECRET: "your-google-client-secret"
+  JWT_SECRET_KEY: "your-jwt-secret"
+```
+
+### Build and Deploy
 
 ```bash
-# Navigate to project root
-cd ai-doc-intelligence
+# Create namespace
+kubectl create namespace ai-doc-intelligence
 
-# Build all service images
+# Build all Docker images
 docker build -t ai-doc-auth:latest ./services/auth-service
 docker build -t ai-doc-document:latest ./services/document-service
 docker build -t ai-doc-llm-proxy:latest ./services/llm-proxy
 docker build -t ai-doc-ingestion:latest ./services/ingestion-worker
 docker build -t ai-doc-rag:latest ./services/rag-service
 docker build -t ai-doc-gateway:latest ./services/api-gateway
+docker build -t ai-doc-frontend:latest ./services/web-frontend
 
-# Build frontend with environment variables
-docker build \
-  --build-arg REACT_APP_API_URL=http://localhost:30080 \
-  --build-arg REACT_APP_GOOGLE_CLIENT_ID=your-google-client-id \
-  -t ai-doc-frontend:latest \
-  ./services/web-frontend
-```
-
-### Configure Secrets
-
-Create your secrets file from the template:
-
-```bash
-cp k8s/config/secrets.yaml.template k8s/config/secrets.yaml
-```
-
-Edit `k8s/config/secrets.yaml` and add your credentials:
-
-```yaml
-# AWS S3 Credentials
-S3_ACCESS_KEY_ID: "your-aws-access-key-id"
-S3_SECRET_ACCESS_KEY: "your-aws-secret-access-key"
-
-# OpenAI API
-OPENAI_API_KEY: "your-openai-api-key"
-
-# Google OAuth
-GOOGLE_CLIENT_ID: "your-google-client-id"
-GOOGLE_CLIENT_SECRET: "your-google-client-secret"
-```
-
-Also update `k8s/config/configmap.yaml` with your AWS S3 bucket name and region:
-
-```yaml
-S3_BUCKET_NAME: "your-bucket-name"  # Must be globally unique
-S3_REGION: "us-east-1"  # Your AWS region
-S3_ENDPOINT_URL: ""  # Empty for AWS S3
-```
-
-**Note:** The actual `secrets.yaml` file is gitignored for security. Never commit real credentials to version control.
-
-### AWS S3 Setup (Production)
-
-For production deployment with AWS S3:
-
-1. **Create S3 Bucket:**
-```bash
-aws s3 mb s3://ai-doc-intelligence-prod --region us-east-1
-```
-
-2. **Enable Versioning (recommended):**
-```bash
-aws s3api put-bucket-versioning \
-  --bucket ai-doc-intelligence-prod \
-  --versioning-configuration Status=Enabled
-```
-
-3. **Create IAM User with S3 Access:**
-```bash
-# Create IAM user
-aws iam create-user --user-name ai-doc-s3-user
-
-# Attach S3 policy
-aws iam attach-user-policy \
-  --user-name ai-doc-s3-user \
-  --policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess
-
-# Create access keys
-aws iam create-access-key --user-name ai-doc-s3-user
-```
-
-4. **Configure Lifecycle Policy (optional, for cost optimization):**
-```bash
-# Move to Infrequent Access after 90 days
-aws s3api put-bucket-lifecycle-configuration \
-  --bucket ai-doc-intelligence-prod \
-  --lifecycle-configuration file://s3-lifecycle.json
-```
-
-5. **Update secrets.yaml with AWS credentials** from step 3
-
-For local development, you can use MinIO by setting `S3_ENDPOINT_URL: "http://minio:9000"` in configmap.yaml and deploying the MinIO infrastructure.
-
-### AWS RDS PostgreSQL Setup (Production)
-
-For production deployment with AWS RDS PostgreSQL:
-
-1. **Create RDS PostgreSQL Instance:**
-```bash
-aws rds create-db-instance \
-  --db-instance-identifier ai-doc-intelligence-db \
-  --db-instance-class db.t3.micro \
-  --engine postgres \
-  --engine-version 16.1 \
-  --master-username docai_admin \
-  --master-user-password 'YourSecurePassword123!' \
-  --allocated-storage 20 \
-  --storage-type gp3 \
-  --vpc-security-group-ids sg-xxxxx \
-  --db-subnet-group-name your-subnet-group \
-  --publicly-accessible \
-  --backup-retention-period 7 \
-  --preferred-backup-window "03:00-04:00" \
-  --preferred-maintenance-window "mon:04:00-mon:05:00" \
-  --enable-cloudwatch-logs-exports '["postgresql"]' \
-  --storage-encrypted
-```
-
-2. **Enable pgvector Extension:**
-
-Once the RDS instance is created, connect using psql and enable the extension:
-
-```bash
-# Get the RDS endpoint
-aws rds describe-db-instances \
-  --db-instance-identifier ai-doc-intelligence-db \
-  --query 'DBInstances[0].Endpoint.Address' \
-  --output text
-
-# Connect to RDS
-psql -h your-rds-endpoint.rds.amazonaws.com -U docai_admin -d postgres
-
-# Create database and enable pgvector
-CREATE DATABASE docai;
-\c docai
-CREATE EXTENSION IF NOT EXISTS vector;
-```
-
-3. **Configure Security Group:**
-
-Allow inbound PostgreSQL traffic (port 5432) from your Kubernetes cluster or VPC:
-
-```bash
-aws ec2 authorize-security-group-ingress \
-  --group-id sg-xxxxx \
-  --protocol tcp \
-  --port 5432 \
-  --cidr your-cluster-cidr/16
-```
-
-4. **Update secrets.yaml with RDS connection string:**
-
-```yaml
-DATABASE_URL: postgresql+asyncpg://docai_admin:YourSecurePassword123!@your-rds-endpoint.rds.amazonaws.com:5432/docai
-```
-
-**Important Notes:**
-- RDS PostgreSQL supports pgvector extension (required for vector search)
-- Use SSL/TLS for production connections
-- Enable automated backups and Multi-AZ for high availability
-- For local development, use the self-hosted PostgreSQL deployed in k8s/infrastructure/
-
-### AWS ElastiCache Redis Setup (Production)
-
-For production deployment with AWS ElastiCache Redis:
-
-1. **Create ElastiCache Redis Cluster:**
-```bash
-aws elasticache create-cache-cluster \
-  --cache-cluster-id ai-doc-intelligence-redis \
-  --engine redis \
-  --engine-version 7.0 \
-  --cache-node-type cache.t3.micro \
-  --num-cache-nodes 1 \
-  --security-group-ids sg-xxxxx \
-  --cache-subnet-group-name your-subnet-group
-```
-
-2. **Get Redis Endpoint:**
-```bash
-aws elasticache describe-cache-clusters \
-  --cache-cluster-id ai-doc-intelligence-redis \
-  --show-cache-node-info \
-  --query 'CacheClusters[0].CacheNodes[0].Endpoint' \
-  --output table
-```
-
-3. **Update configmap.yaml with ElastiCache endpoints:**
-
-```yaml
-# Replace the Redis URLs with ElastiCache endpoint
-REDIS_URL: "redis://your-redis-endpoint.cache.amazonaws.com:6379/0"
-REDIS_URL_0: "redis://your-redis-endpoint.cache.amazonaws.com:6379/0"
-REDIS_URL_1: "redis://your-redis-endpoint.cache.amazonaws.com:6379/1"
-REDIS_URL_2: "redis://your-redis-endpoint.cache.amazonaws.com:6379/2"
-```
-
-4. **Configure Security Group:**
-```bash
-aws ec2 authorize-security-group-ingress \
-  --group-id sg-xxxxx \
-  --protocol tcp \
-  --port 6379 \
-  --cidr your-cluster-cidr/16
-```
-
-**Benefits:**
-- Managed service with automatic failover
-- Automated backups and snapshots
-- In-memory performance for caching
-- For local development, use the self-hosted Redis deployed in k8s/infrastructure/
-
-### Deploy to Kubernetes
-
-```bash
-# Create namespace
-kubectl apply -f k8s/namespace.yaml
-
-# Apply configurations (secrets and configmaps)
+# Deploy to Kubernetes
 kubectl apply -f k8s/config/
-
-# Deploy infrastructure (postgres, redis, minio)
 kubectl apply -f k8s/infrastructure/
-
-# Wait for infrastructure to be ready
-kubectl wait --for=condition=ready pod -l app=postgres -n ai-doc-intelligence --timeout=300s
-kubectl wait --for=condition=ready pod -l app=redis -n ai-doc-intelligence --timeout=300s
-kubectl wait --for=condition=ready pod -l app=minio -n ai-doc-intelligence --timeout=300s
-
-# Run database migrations for chat history
-kubectl exec -it -n ai-doc-intelligence deployment/postgres -- psql -U docai -d docai -f - < services/rag-service/migrations/002_add_chat_history.sql
-
-# Deploy application services
 kubectl apply -f k8s/services/
 
-# Wait for all services to be ready
-kubectl wait --for=condition=ready pod --all -n ai-doc-intelligence --timeout=300s
+# Wait for pods to be ready
+kubectl get pods -n ai-doc-intelligence -w
+```
 
-# Verify deployment
-kubectl get pods -n ai-doc-intelligence
+### Run Database Migrations
+
+```bash
+# Apply chat history migration
+cat services/rag-service/migrations/002_add_chat_history.sql | \
+  kubectl exec -i -n ai-doc-intelligence postgres-0 -- psql -U docai -d docai
 ```
 
 ### Access the Application
 
-The services are exposed via NodePort:
+- Frontend: http://localhost:30000
+- API Gateway: http://localhost:30080
+- API Docs: http://localhost:30080/docs
+- MinIO Console: http://localhost:30901
 
-- **Web Frontend**: http://localhost:30000
-- **API Gateway**: http://localhost:30080
-- **MinIO Console**: http://localhost:30901 (credentials: minioadmin/minioadmin)
+## Testing
 
-### Google OAuth Configuration
-
-Add the following authorized JavaScript origins and redirect URIs to your Google Cloud Console OAuth 2.0 client:
-
-**Authorized JavaScript origins:**
-- http://localhost:30000
-- http://localhost:3000
-
-**Authorized redirect URIs:**
-- http://localhost:30000
-- http://localhost:3000
-
-## Major Issues and Solutions
-
-### Issue 1: Google OAuth Client ID Not Found
-
-**Problem**: Frontend showed "Missing required parameter: client_id" error when attempting Google OAuth login.
-
-**Root Cause**: React environment variables must be available at build time, but .dockerignore was excluding .env files from the Docker build context.
-
-**Solution**: Modified the frontend Dockerfile to accept build arguments and set environment variables explicitly:
-
-```dockerfile
-ARG REACT_APP_API_URL=http://localhost:8080
-ARG REACT_APP_GOOGLE_CLIENT_ID
-
-ENV REACT_APP_API_URL=${REACT_APP_API_URL}
-ENV REACT_APP_GOOGLE_CLIENT_ID=${REACT_APP_GOOGLE_CLIENT_ID}
-```
-
-Build command with arguments:
-```bash
-docker build --no-cache \
-  --build-arg REACT_APP_GOOGLE_CLIENT_ID="your-client-id" \
-  -t ai-doc-frontend:latest .
-```
-
-**Learning**: React environment variables (prefixed with REACT_APP_) are baked into the build at compile time, not runtime. When using Docker, these must be provided as build arguments if .env files are excluded from the build context.
-
-### Issue 2: CORS Blocking Frontend Requests
-
-**Problem**: Browser blocked API requests with CORS errors when accessing API Gateway from frontend on port 30000.
-
-**Root Cause**: API Gateway CORS configuration only allowed http://localhost:3000, not http://localhost:30000 (the Kubernetes NodePort).
-
-**Solution**: Updated API Gateway CORS configuration to include both origins:
-
-```python
-CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:30000"]
-```
-
-**Learning**: When deploying to Kubernetes with NodePort services, ensure all CORS origins include both development and deployment URLs.
-
-### Issue 3: Document Processing Failed - Connection Refused
-
-**Problem**: Document processing failed with "Failed to send to ingestion worker: All connection attempts failed" error.
-
-**Root Cause**: The document-service Kubernetes deployment was missing the INGESTION_WORKER_URL environment variable, so the service didn't know where to send processing requests.
-
-**Solution**: Added the missing environment variable to the deployment manifest:
-
-```yaml
-- name: INGESTION_WORKER_URL
-  valueFrom:
-    configMapKeyRef:
-      name: ai-doc-config
-      key: INGESTION_WORKER_URL
-```
-
-**Learning**: Kubernetes deployments require explicit environment variable mappings. Services don't automatically inherit configuration from ConfigMaps - each variable must be explicitly mapped.
-
-### Issue 4: Embedding Generation Failed - 400 Bad Request
-
-**Problem**: Ingestion worker failed with "Client error '400 Bad Request' for url 'http://llm-proxy:8002/llm/embeddings'".
-
-**Root Cause**: The OPENAI_API_KEY in secrets.yaml was an empty string, causing OpenAI API to reject requests.
-
-**Solution**: Updated secrets.yaml with valid OpenAI API key and restarted dependent services:
+### Run Unit Tests
 
 ```bash
-kubectl apply -f k8s/config/secrets.yaml
-kubectl rollout restart deployment/llm-proxy -n ai-doc-intelligence
-kubectl rollout restart deployment/ingestion-worker -n ai-doc-intelligence
-kubectl rollout restart deployment/rag-service -n ai-doc-intelligence
+# All services
+./run-tests.sh
+
+# Specific service
+./run-tests.sh auth-service
 ```
 
-**Learning**: Always verify API keys are set correctly before deployment. Empty or invalid API keys may not cause immediate errors but will fail during actual API calls.
+### CI/CD Pipeline
 
-## Key Learnings
+GitHub Actions automatically runs on every push:
+- Code linting (flake8, black, isort)
+- Unit tests for all services
+- Docker image builds
+- Code coverage reporting
 
-1. **Microservices Communication**: Learned to design service-to-service communication patterns, including sync HTTP calls (document → ingestion) and the importance of service discovery in Kubernetes via DNS (service-name.namespace.svc.cluster.local).
+See `.github/workflows/ci.yml` for the full pipeline.
 
-2. **Kubernetes Configuration Management**: Understanding the separation between ConfigMaps (non-sensitive config) and Secrets (credentials), and how to properly mount them as environment variables in deployments.
+## AWS Deployment (Optional)
 
-3. **Docker Build Context**: Deep understanding of how .dockerignore affects builds, especially for React apps where environment variables must be available at build time. Learned to use multi-stage builds and build arguments effectively.
+Terraform configuration is included for deploying to AWS:
 
-4. **CORS in Microservices**: Frontend applications deployed separately from backends require careful CORS configuration, especially when using different ports or Kubernetes NodePort services.
+```bash
+cd infra/terraform
 
-5. **Vector Databases**: Practical experience implementing semantic search using PostgreSQL pgvector extension, understanding cosine similarity for document retrieval, and optimizing vector index performance.
+# Initialize Terraform
+terraform init
 
-6. **RAG Architecture**: Hands-on implementation of a complete RAG pipeline, including document chunking strategies, embedding generation, similarity search thresholds, and context injection for LLM queries.
+# Review planned changes
+terraform plan
 
-7. **Kubernetes Debugging**: Learned systematic debugging approaches using kubectl logs, describe pod, and rollout restart. Understanding pod lifecycle, readiness/liveness probes, and troubleshooting ImagePullBackOff and CrashLoopBackOff errors.
+# Deploy infrastructure
+terraform apply
+```
 
-8. **Caching Strategies**: Implemented multi-layer caching with Redis to reduce API costs and latency. Learned to cache embeddings (expensive to generate), query results (improve response time), and handle cache invalidation.
+This creates:
+- VPC with public/private subnets
+- RDS PostgreSQL instance
+- S3 bucket for documents
+- ElastiCache Redis cluster
+
+Update `k8s/config/configmap.yaml` to use AWS endpoints instead of local MinIO/Postgres.
+
+## What I Learned
+
+### Technical Skills
+- Designing and implementing microservices architecture
+- Working with async Python (asyncio, async/await patterns)
+- Integrating OpenAI's API for embeddings and chat completions
+- Using vector databases for semantic search
+- Implementing JWT-based authentication
+- Kubernetes deployment and service orchestration
+- Docker multi-stage builds for optimized images
+- Setting up CI/CD pipelines with GitHub Actions
+- Writing comprehensive unit tests
+
+### Challenges Faced
+- Handling CORS in microservices architecture
+- Managing database connections efficiently with async SQLAlchemy
+- Optimizing text chunking for better retrieval results
+- Implementing proper error handling across services
+- Coordinating presigned URLs between internal and external services
+- Understanding Kubernetes networking (ClusterIP vs NodePort)
+
+### Architecture Decisions
+- Split into microservices for scalability and maintainability
+- Used async throughout for better performance
+- Implemented caching at multiple layers
+- Chose PostgreSQL + pgvector over dedicated vector DB for simplicity
+- Used MinIO locally but designed for easy AWS S3 migration
 
 ## Project Structure
 
 ```
 ai-doc-intelligence/
 ├── services/
-│   ├── api-gateway/           # FastAPI request router
-│   ├── auth-service/          # OAuth + JWT authentication
-│   ├── document-service/      # Document management + S3
-│   ├── ingestion-worker/      # Text extraction + chunking
-│   ├── llm-proxy/            # OpenAI API client + caching
-│   ├── rag-service/          # Vector search + Q&A
-│   └── web-frontend/         # React TypeScript UI
+│   ├── auth-service/          # Google OAuth + JWT
+│   ├── document-service/      # File upload/download
+│   ├── llm-proxy/             # OpenAI API integration
+│   ├── ingestion-worker/      # Text extraction + embeddings
+│   ├── rag-service/           # Vector search + Q&A
+│   ├── api-gateway/           # Request routing
+│   └── web-frontend/          # React UI
 ├── k8s/
-│   ├── namespace.yaml        # Kubernetes namespace
-│   ├── config/              # Secrets and ConfigMaps
-│   ├── infrastructure/      # Postgres, Redis, MinIO
-│   └── services/            # Application deployments
-├── infra/                   # Database initialization scripts
-├── docker-compose.yml       # Local development setup
-└── README.md               # This file
+│   ├── config/                # ConfigMaps and Secrets
+│   ├── infrastructure/        # Postgres, Redis, MinIO
+│   └── services/              # Application deployments
+├── infra/terraform/           # AWS infrastructure
+├── monitoring/                # Prometheus + Grafana
+└── .github/workflows/         # CI/CD pipeline
 ```
 
-## Development Setup
+## API Endpoints
 
-For local development without Kubernetes:
+### Authentication
+- `POST /api/auth/google` - Login with Google
+- `GET /api/auth/verify` - Verify JWT token
 
-```bash
-# Start infrastructure
-docker-compose up -d postgres redis minio
+### Documents
+- `POST /api/documents/upload` - Upload document
+- `GET /api/documents/` - List user's documents
+- `GET /api/documents/{id}/download` - Get download URL
+- `DELETE /api/documents/{id}` - Delete document
+- `POST /api/documents/{id}/process` - Process document
 
-# Start each service in a separate terminal
-cd services/auth-service && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt && uvicorn app.main:app --reload --port 8000
-cd services/document-service && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt && uvicorn app.main:app --reload --port 8001
-cd services/llm-proxy && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt && uvicorn app.main:app --reload --port 8002
-cd services/ingestion-worker && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt && uvicorn app.main:app --reload --port 8003
-cd services/rag-service && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt && uvicorn app.main:app --reload --port 8004
-cd services/api-gateway && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt && uvicorn app.main:app --reload --port 8080
+### RAG
+- `POST /api/rag/ask` - Ask question about documents
+- `POST /api/rag/search` - Search document chunks
 
-# Start frontend
-cd services/web-frontend && npm install && npm start
-```
+### Conversations
+- `GET /api/conversations/` - List conversations
+- `POST /api/conversations/` - Create conversation
+- `GET /api/conversations/{id}` - Get conversation with messages
 
-## Environment Variables
+## Future Improvements
 
-Key environment variables required:
-
-```env
-# OpenAI API
-OPENAI_API_KEY=sk-...
-
-# Google OAuth
-GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=GOCSPX-...
-
-# Database
-DATABASE_URL=postgresql+asyncpg://docai:password@postgres:5432/docai
-
-# Redis
-REDIS_URL=redis://redis:6379/0
-
-# S3/MinIO
-S3_ENDPOINT_URL=http://minio:9000
-S3_ACCESS_KEY_ID=minioadmin
-S3_SECRET_ACCESS_KEY=minioadmin
-S3_BUCKET_NAME=documents
-
-# JWT
-JWT_SECRET_KEY=your-secret-key-change-in-production
-```
+- Add support for more document types (Excel, PowerPoint)
+- Implement streaming responses for real-time answers
+- Add document comparison features
+- Deploy to production cloud environment
+- Implement rate limiting and better error handling
+- Add support for multiple languages
+- Fine-tune embedding models for domain-specific documents
 
 ## License
 
-MIT License - free to use for learning and portfolio purposes.
+This is a personal learning project. Feel free to use any part of the code for your own learning.
